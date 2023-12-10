@@ -5,7 +5,7 @@ from bayesianization import BayesianConViT
 from data_generator import generate_synthetic_data
 import torch.nn as nn
 
-def train(model, optimizer, criterion, data_loader, epochs=10, device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")):
+def train(model, optimizer, criterion, data_loader, epochs=1, device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")):
     model.train()
     for epoch in range(epochs):
         for i, (images, labels) in enumerate(data_loader):
@@ -31,6 +31,42 @@ def validate(model, data_loader, device=torch.device("cuda:0" if torch.cuda.is_a
             correct += (predicted == labels).sum().item()
     accuracy = 100 * correct / total
     print(f'Accuracy on the test set: {accuracy}%')
+
+def train_with_debug(model, optimizer, criterion, data_loader, epochs=1, device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")):
+    model.train()
+    for epoch in range(epochs):
+        for i, (images, labels) in enumerate(data_loader):
+            try:
+                images, labels = images.to(device), labels.to(device)  # 将数据发送到GPU
+                optimizer.zero_grad()
+                outputs = model(images)
+                loss = criterion(outputs, labels)
+                loss.backward()
+                optimizer.step()
+                if i % 10 == 0:  # 每10个批次打印一次损失
+                    print(f"Epoch [{epoch+1}/{epochs}], Step [{i+1}/{len(data_loader)}], Loss: {loss.item()}")
+            except Exception as e:
+                print(f"Exception occurred during training: {e}")
+                raise
+
+def validate_with_debug(model, data_loader, device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")):
+    model.eval()
+    correct = 0
+    total = 0
+    try:
+        with torch.no_grad():
+            for images, labels in data_loader:
+                images, labels = images.to(device), labels.to(device)  # 将数据发送到GPU
+                outputs = model(images)
+                _, predicted = torch.max(outputs.data, 1)
+                total += labels.size(0)
+                correct += (predicted == labels).sum().item()
+        accuracy = 100 * correct / total
+        print(f'Accuracy on the test set: {accuracy}%')
+    except Exception as e:
+        print(f"Exception occurred during validation: {e}")
+        raise
+
 
 # 参数
 num_samples = 1000
@@ -62,5 +98,5 @@ criterion = nn.CrossEntropyLoss()
 print("模型初始化成功")
 
 # 训练和验证模型
-train(model, optimizer, criterion, data_loader)
-validate(model, data_loader)
+train_with_debug(model, optimizer, criterion, data_loader)
+validate_with_debug(model, data_loader)
